@@ -34,43 +34,49 @@ options = {
     "relationship_values": ["Trust and honesty", "Communication", "Mutual respect", "Shared interests", "Independence", "Emotional support"],
     "deal_breakers": ["Smoking", "Drinking", "Political views", "Religious views"], 
 }
+def clean_data(name):
+    df = pd.read_csv(name)
+    df = df.dropna()
+    df = df.drop_duplicates()
+    df = df.reset_index(drop=True)
+    columns_for_training = ['Email Address','Who are you?','Who are you looking for?','Are you looking for:', 'Would you describe yourself more as an introvert or an extrovert?', 'Are you a morning person or a night owl?','What type of music do you prefer?','Which of these values is most important to you in a relationship?','Are there any absolute deal breakers for you in a relationship?']
+    df = df[columns_for_training]
+    return df
+
+def ml_funct(df,file_name):
+    df.to_csv("file_name", index=False)
+    le_dict = {}
+    for column in df.columns:
+        le = LabelEncoder()
+        df[column] = le.fit_transform(df[column])
+        le_dict[column] = le
+
+    data_fr = pd.read_csv("file_name")
+    knn = NearestNeighbors(n_neighbors=100)
+    knn.fit(df)
+
+    distances, indices = knn.kneighbors([df.iloc[0]])
+
+    df_inverse = df.copy()
+    for column in df_inverse.columns:
+        df_inverse[column] = le_dict[column].inverse_transform(df_inverse[column])
+
+    new_df = df_inverse.iloc[indices[0]]
+
+    valid_entries_df = pd.DataFrame(columns=df_inverse.columns)
+
+    for idx in new_df.index:
+        entry = new_df.loc[idx]
+        if entry["Who are you?"] == data_fr.iloc[0]["Who are you looking for?"] and data_fr.iloc[0]["Who are you?"] == entry["Who are you looking for?"]:
+            valid_entries_df = pd.concat([valid_entries_df, entry.to_frame().T], ignore_index=True)
+    return valid_entries_df
+
 num_rows = 1000
 
-df = generate_data(columns, options, num_rows)
-df.to_csv("random_data.csv", index=False)
+df = clean_data("ML_blind_date.csv")
+valid_entries_df = ml_funct(df,"lol")
 
-print("Random data generated and saved to 'random_data.csv'.")
-
-le_dict = {}
-for column in df.columns:
-    le = LabelEncoder()
-    df[column] = le.fit_transform(df[column])
-    le_dict[column] = le
-
-data_fr = pd.read_csv("random_data.csv")
-knn = NearestNeighbors(n_neighbors=10)
-knn.fit(df)
-
-distances, indices = knn.kneighbors([df.iloc[0]])
-
-df_inverse = df.copy()
-for column in df_inverse.columns:
-    df_inverse[column] = le_dict[column].inverse_transform(df_inverse[column])
-
-# Corrected line: df_inverse.iloc[indices[0]] instead of df_inverse.iloc()[indices[0]]
-new_df = df_inverse.iloc[indices[0]]
-
-# Create a new DataFrame to store valid entries
-valid_entries_df = pd.DataFrame(columns=df_inverse.columns)
-
-# Iterate through the indices and check the condition
-for idx in new_df.index:
-    entry = new_df.loc[idx]
-    if entry["who_are_you"] == data_fr.iloc[0]["looking_for"] and data_fr.iloc[0]["who_are_you"] == entry["looking_for"]:
-        valid_entries_df = valid_entries_df.append(entry, ignore_index=True)
-
-# Print or use the new DataFrame with valid entries
 help = len(valid_entries_df)
 print("Number of valid entries: ", help)
 
-print(valid_entries_df.head())
+valid_entries_df.to_csv("lol.csv",index = True)
